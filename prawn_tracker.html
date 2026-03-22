@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0"/>
+<title>Prawn Tracker</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#f1efe8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.app{max-width:390px;margin:0 auto;height:100dvh;display:flex;flex-direction:column;overflow:hidden;background:#f1efe8}
+
+/* TOP BAR */
+.tb{background:#fff;padding:10px 16px;border-bottom:.5px solid rgba(0,0,0,0.1);flex-shrink:0}
+.tb1{display:flex;align-items:center;justify-content:space-between}
+.metarow{display:flex;align-items:center;gap:6px}
+.metaval{font-size:14px;font-weight:600;color:#1a1a1a}
+.metaval.dim{color:#888;font-weight:400}
+.ebtn{background:none;border:none;cursor:pointer;padding:3px;color:#bbb;line-height:0;border-radius:4px;flex-shrink:0}
+.ebtn:active{background:#f1efe8}
+.einp{height:30px;padding:0 8px;font-size:14px;border:.5px solid #ccc;border-radius:6px;background:#f5f5f5;color:#1a1a1a;font-family:inherit;display:none}
+#outletInp{width:140px}
+#dateInp{width:130px}
+.sep{font-size:13px;color:#ddd;margin:0 4px}
+.view-badge{font-size:10px;font-weight:700;padding:2px 7px;border-radius:10px;background:#FEF3C7;color:#92400E;margin-left:4px}
+
+/* SCREEN MANAGER */
+.screens{flex:1;position:relative;overflow:hidden;min-height:0}
+.screen{position:absolute;inset:0;display:flex;flex-direction:column;transition:transform .28s cubic-bezier(.4,0,.2,1)}
+.screen.behind{transform:translateX(-100%);pointer-events:none}
+.screen.ahead{transform:translateX(100%);pointer-events:none}
+.screen.active{transform:translateX(0)}
+
+/* LIST SCREEN */
+#scList{background:#f1efe8;overflow-y:auto;padding:14px 14px 18px}
+
+/* FLOW CONNECTOR — visible arrow */
+.conn{display:flex;flex-direction:column;align-items:center;height:28px;justify-content:center;position:relative}
+.conn-line{width:2px;height:12px;background:linear-gradient(to bottom,#ccc,#E8640A44)}
+.conn-arrow{width:0;height:0;border-left:6px solid transparent;border-right:6px solid transparent;border-top:8px solid #E8640A;opacity:.55}
+
+/* CARD */
+.fc{background:#fff;border-radius:12px;border:.5px solid rgba(0,0,0,0.1);overflow:hidden;cursor:pointer;-webkit-tap-highlight-color:transparent;position:relative}
+.fc.pend{border-color:rgba(217,119,6,.55);border-width:1px}
+.fc.readonly{cursor:default;opacity:.85}
+.fc:not(.readonly):active{opacity:.85}
+
+/* SEQUENCE STRIP — left side colored bar + number */
+.fhd{display:flex;align-items:stretch;min-height:72px}
+.fseq{width:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#f7f7f5;border-right:.5px solid rgba(0,0,0,0.07);flex-shrink:0;gap:4px;padding:10px 0}
+.fseq-num{font-size:16px;font-weight:800;color:#ccc;line-height:1}
+.fseq-dot{width:6px;height:6px;border-radius:50%;background:#ddd}
+.fseq.s-pend .fseq-num{color:#E8640A}
+.fseq.s-pend .fseq-dot{background:#E8640A;animation:pulse 2s infinite}
+.fseq.s-done .fseq-num{color:#16A34A}
+.fseq.s-done .fseq-dot{background:#16A34A}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+
+.fbody{flex:1;padding:11px 12px 11px;min-width:0}
+.ftitle{font-size:14px;font-weight:700;color:#1a1a1a}
+.fsub{font-size:11.5px;color:#555;margin-top:3px;line-height:1.45}
+.fmeta{font-size:10.5px;color:#aaa;margin-top:3px;line-height:1.35}
+
+/* STATUS ICON */
+.ficon{display:flex;align-items:center;justify-content:center;padding:11px 12px 11px 4px;flex-shrink:0}
+.ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.ico-idle{background:#f1efe8}
+.ico-pend{background:#FEF3C7}
+.ico-done{background:#DCFCE7}
+
+/* STEP SCREENS */
+.step-screen{background:#f1efe8;display:flex;flex-direction:column}
+.step-hd{background:#fff;padding:11px 14px;border-bottom:.5px solid rgba(0,0,0,0.1);display:flex;align-items:center;gap:10px;flex-shrink:0}
+.back-btn{background:none;border:none;cursor:pointer;padding:4px;color:#555;line-height:0;border-radius:6px;flex-shrink:0}
+.step-hd-info{flex:1}
+.step-hd-title{font-size:15px;font-weight:600;color:#1a1a1a}
+.step-hd-sub{font-size:11px;color:#888;margin-top:1px}
+.readonly-banner{background:#FEF3C7;padding:8px 14px;font-size:12px;color:#92400E;font-weight:500;display:none;flex-shrink:0}
+.readonly-banner.on{display:block}
+.step-body{flex:1;overflow-y:auto;padding-bottom:28px;min-height:0}
+
+/* FORM */
+.sec{background:#fff;border-bottom:.5px solid rgba(0,0,0,0.06)}
+.pbanner{margin:8px 12px 0;padding:9px 11px;background:#FEF3C7;border-radius:8px;font-size:12px;color:#92400E;font-weight:500;line-height:1.5;display:none}
+.pbanner.on{display:block}
+.bi{display:flex;align-items:center;padding:9px 12px;gap:10px;border-bottom:.5px solid rgba(0,0,0,0.06)}
+.bchk{width:18px;height:18px;border-radius:50%;background:#16A34A;flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.binfo{flex:1;font-size:12px;color:#1a1a1a;line-height:1.4}
+.btime{font-size:11px;color:#aaa;white-space:nowrap}
+.phdr{display:grid;grid-template-columns:30px 1fr 1fr;background:#f7f7f5;border-bottom:.5px solid rgba(0,0,0,0.06)}
+.phdr>div{padding:6px 8px;font-size:10px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.04em}
+.phdr>div:nth-child(n+2){border-left:.5px solid rgba(0,0,0,0.06)}
+.prow{display:grid;grid-template-columns:30px 1fr 1fr;border-bottom:.5px solid rgba(0,0,0,0.06)}
+.prow:last-child{border-bottom:none}
+.prow.filled{background:#f9fef9}
+.pn{display:flex;align-items:center;justify-content:center;font-size:11px;color:#bbb}
+.pcc{border-left:.5px solid rgba(0,0,0,0.06)}
+.pki{width:100%;height:42px;font-size:18px;font-weight:500;text-align:center;border:none;background:transparent;color:#1a1a1a;font-family:inherit}
+.pki:focus{outline:none;background:#EFF6FF}
+.pki::placeholder{font-size:13px;color:#ddd}
+.pki.err{background:#FEF2F2}
+.pki:disabled{color:#aaa;background:#fafafa}
+.errmsg{font-size:12px;color:#DC2626;padding:7px 12px;display:none;background:#FEF2F2}
+.unu-area{padding:10px 12px;display:grid;grid-template-columns:1fr 58px;gap:10px;align-items:end}
+.flbl{display:block;font-size:10px;font-weight:700;color:#999;text-transform:uppercase;letter-spacing:.04em;margin-bottom:4px}
+.ufi{width:100%;height:50px;font-size:20px;font-weight:500;text-align:center;border:.5px solid #ddd;border-radius:8px;background:#f7f7f5;color:#1a1a1a;font-family:inherit}
+.ufi:focus{outline:2px solid #E8640A;border-color:transparent}
+.ufi:disabled{color:#aaa;background:#fafafa}
+.imgbox{width:58px;height:50px;border:.5px dashed #ccc;border-radius:8px;overflow:hidden;position:relative;background:#f7f7f5;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.imgbox img{width:100%;height:100%;object-fit:cover}
+.imgbox input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+.imgph{font-size:9px;color:#bbb;text-align:center;line-height:1.5;pointer-events:none}
+.tstrip{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;padding:10px 12px}
+.tot{background:#f7f7f5;border-radius:7px;padding:8px 4px;text-align:center}
+.tl{font-size:9px;color:#999;text-transform:uppercase;letter-spacing:.03em}
+.tv{font-size:14px;font-weight:600;margin-top:2px;color:#1a1a1a}
+.tv.acc{color:#E8640A}
+.fml{font-size:11.5px;color:#666;padding:0 12px 9px;display:none;line-height:1.7}
+.fml strong{color:#1a1a1a;font-weight:600}
+.ob{padding:12px 14px 10px}
+.ob-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999;margin-bottom:3px}
+.ob-val{font-size:40px;font-weight:500;color:#1a1a1a;line-height:1}
+.ob-unit{font-size:12px;color:#999;margin-top:3px}
+.irow{display:flex;justify-content:space-between;align-items:flex-start;padding:10px 14px}
+.il{font-size:13px;color:#555;flex:1;padding-right:8px;line-height:1.5}
+.il small{display:block;font-size:11px;opacity:.8;margin-top:2px}
+.iv{font-size:24px;font-weight:500;flex-shrink:0;color:#1a1a1a}
+.iv.acc{color:#E8640A}
+.fl{padding:10px 14px}
+.fi-xl{width:100%;height:72px;font-size:36px;font-weight:500;text-align:center;border:.5px solid #ddd;border-radius:10px;background:#f7f7f5;color:#1a1a1a;font-family:inherit}
+.fi-xl:focus{outline:2px solid #E8640A;border-color:transparent}
+.fi-xl:disabled{color:#aaa;background:#fafafa}
+.rslt{padding:10px 14px;background:#f7f7f5;display:none}
+.rslt.on{display:block}
+.rslt-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999;margin-bottom:2px}
+.rslt-val{font-size:30px;font-weight:500;color:#16A34A}
+.rslt-sub{font-size:11.5px;color:#666;margin-top:2px}
+.bp{width:100%;height:54px;background:#E8640A;color:#fff;border:none;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit}
+.bp:active{opacity:.85}
+.bp:disabled{background:#ccc;cursor:default}
+.okmsg{text-align:center;font-size:13px;font-weight:500;padding:12px;background:#DCFCE7;color:#166534;display:none}
+.hist-hd{padding:7px 12px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:#999;background:#f7f7f5;border-top:.5px solid rgba(0,0,0,0.06)}
+.he{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:.5px solid rgba(0,0,0,0.06);font-size:12px;color:#1a1a1a}
+.he:last-child{border-bottom:none}
+.ht{font-size:11px;color:#bbb}
+.rctx{display:grid;grid-template-columns:1fr 1fr}
+.rct{padding:12px 14px;text-align:center;border-right:.5px solid rgba(0,0,0,0.06)}
+.rct:last-child{border-right:none}
+.rl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;color:#999}
+.rv{font-size:26px;font-weight:500;margin-top:3px;color:#1a1a1a}
+.rv.acc{color:#E8640A}
+.rsp{display:grid;grid-template-columns:1fr 1fr}
+.rs{padding:10px 14px;border-right:.5px solid rgba(0,0,0,0.06)}
+.rs:last-child{border-right:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="tb">
+    <div class="tb1">
+      <div class="metarow">
+        <span class="metaval" id="outletLbl">JP Nagar</span>
+        <button class="ebtn" onclick="toggleOutletEdit()" title="Edit outlet">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012.12 2.12L5 13.24 2.75 13.5l.26-2.25L11.5 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <input id="outletInp" class="einp" placeholder="Outlet name" onblur="commitOutlet()" onkeydown="if(event.key==='Enter')this.blur()"/>
+        <span class="sep">·</span>
+        <span class="metaval" id="dateLbl"></span>
+        <button class="ebtn" id="dateEditBtn" onclick="toggleDateEdit()" title="Change date">
+          <svg width="12" height="12" viewBox="0 0 16 16" fill="none"><path d="M11.5 2.5a1.5 1.5 0 012.12 2.12L5 13.24 2.75 13.5l.26-2.25L11.5 2.5z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <input id="dateInp" class="einp" type="date" onblur="commitDate()" onchange="commitDate()"/>
+        <span class="view-badge" id="viewBadge" style="display:none">View only</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="screens">
+
+    <!-- LIST -->
+    <div id="scList" class="screen active">
+
+      <div class="fc" id="fc1" onclick="openStep(1)">
+        <div class="fhd">
+          <div class="fseq fn0" id="fseq1">
+            <span class="fseq-num">1</span>
+            <span class="fseq-dot"></span>
+          </div>
+          <div class="fbody">
+            <div class="ftitle">Packet weigh-in</div>
+            <div class="fsub" id="fs1a">Fill weight &amp; pieces for each packet from store</div>
+            <div class="fmeta" id="fs1b"></div>
+          </div>
+          <div class="ficon"><div class="ico ico-idle" id="ico1">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#ccc" stroke-width="1.5"/></svg>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="conn"><div class="conn-line"></div><div class="conn-arrow"></div></div>
+
+      <div class="fc" id="fc2" onclick="openStep(2)">
+        <div class="fhd">
+          <div class="fseq fn0" id="fseq2">
+            <span class="fseq-num">2</span>
+            <span class="fseq-dot"></span>
+          </div>
+          <div class="fbody">
+            <div class="ftitle">Thaw tracking</div>
+            <div class="fsub" id="fs2a">Track pieces thawed &amp; sent to kitchen</div>
+            <div class="fmeta" id="fs2b"></div>
+          </div>
+          <div class="ficon"><div class="ico ico-idle" id="ico2">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#ccc" stroke-width="1.5"/></svg>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="conn"><div class="conn-line"></div><div class="conn-arrow"></div></div>
+
+      <div class="fc" id="fc3" onclick="openStep(3)">
+        <div class="fhd">
+          <div class="fseq fn0" id="fseq3">
+            <span class="fseq-num">3</span>
+            <span class="fseq-dot"></span>
+          </div>
+          <div class="fbody">
+            <div class="ftitle">Skewer tracking</div>
+            <div class="fsub" id="fs3a">Track skewers produced &amp; served to guests</div>
+            <div class="fmeta" id="fs3b"></div>
+          </div>
+          <div class="ficon"><div class="ico ico-idle" id="ico3">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#ccc" stroke-width="1.5"/></svg>
+          </div></div>
+        </div>
+      </div>
+
+      <div class="conn"><div class="conn-line"></div><div class="conn-arrow"></div></div>
+
+      <div class="fc" id="fc4" onclick="openStep(4)">
+        <div class="fhd">
+          <div class="fseq fn0" id="fseq4">
+            <span class="fseq-num">4</span>
+            <span class="fseq-dot"></span>
+          </div>
+          <div class="fbody">
+            <div class="ftitle">Guest returns</div>
+            <div class="fsub" id="fs4a">Log prawn pieces returned from guest tables</div>
+            <div class="fmeta" id="fs4b"></div>
+          </div>
+          <div class="ficon"><div class="ico ico-idle" id="ico4">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#ccc" stroke-width="1.5"/></svg>
+          </div></div>
+        </div>
+      </div>
+
+    </div><!-- end scList -->
+
+    <!-- STEP 1 -->
+    <div id="sc1" class="screen step-screen ahead">
+      <div class="step-hd">
+        <button class="back-btn" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 4l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="step-hd-info"><div class="step-hd-title">1 · Packet weigh-in</div><div class="step-hd-sub" id="sc1sub">All packets must be filled before saving</div></div>
+      </div>
+      <div class="readonly-banner" id="rb1">Viewing historical data — editing disabled</div>
+      <div class="step-body">
+        <div class="pbanner" id="pb1"></div>
+        <div id="s1batches"></div>
+        <div class="sec" id="s1formSec">
+          <div class="phdr"><div></div><div>Weight (g)</div><div>Pieces</div></div>
+          <div id="pktRows"></div>
+          <div class="errmsg" id="pktErr">All packet rows must have both weight and pieces filled.</div>
+        </div>
+        <div class="sec" id="s1unuSec">
+          <div class="unu-area">
+            <div><span class="flbl">Unusable pieces in this batch</span><input type="number" id="unu" class="ufi" inputmode="numeric" placeholder="0" oninput="calcT1()"/></div>
+            <div><span class="flbl">Photo</span><div class="imgbox" id="imgbox"><div class="imgph" id="imgph">Tap<br>photo</div><input type="file" id="imgFile" accept="image/*" capture="environment" onchange="prevImg(this)"/></div></div>
+          </div>
+        </div>
+        <div class="sec">
+          <div class="tstrip">
+            <div class="tot"><div class="tl">Net weight</div><div class="tv" id="t1w">—</div></div>
+            <div class="tot"><div class="tl">Total pieces</div><div class="tv" id="t1p">—</div></div>
+            <div class="tot"><div class="tl">For skewers</div><div class="tv acc" id="t1u">—</div></div>
+          </div>
+          <div class="fml" id="fml1"></div>
+        </div>
+        <div class="sec" id="s1saveSec"><button class="bp" id="s1btn" onclick="save1()">Save batch</button></div>
+        <div class="okmsg" id="ok1">Batch saved ✓  →  Going to Thaw tracking...</div>
+        <div id="h1wrap" style="display:none"><div class="hist-hd">Saved batches</div><div id="h1l"></div></div>
+      </div>
+    </div>
+
+    <!-- STEP 2 -->
+    <div id="sc2" class="screen step-screen ahead">
+      <div class="step-hd">
+        <button class="back-btn" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 4l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="step-hd-info"><div class="step-hd-title">2 · Thaw tracking</div><div class="step-hd-sub">Pieces sent to kitchen</div></div>
+      </div>
+      <div class="readonly-banner" id="rb2">Viewing historical data — editing disabled</div>
+      <div class="step-body">
+        <div class="sec"><div class="ob"><div class="ob-lbl">Opening — previous session closing</div><div class="ob-val" id="s2op">0</div><div class="ob-unit">pieces in freezer</div></div></div>
+        <div class="sec"><div class="irow"><span class="il">Pieces issued today<small>From store (Step 1) not yet accounted</small></span><span class="iv acc" id="s2is">0</span></div></div>
+        <div class="sec"><div class="fl"><span class="flbl">Closing — pieces back to freezer now</span><input type="number" id="s2cl" class="fi-xl" inputmode="numeric" placeholder="0" oninput="calc2()"/></div></div>
+        <div class="sec"><div class="rslt" id="s2rslt"><div class="rslt-lbl">Sent to kitchen</div><div class="rslt-val" id="s2co">—</div><div class="rslt-sub">Picked up for marination &amp; skewer prep</div></div><div class="fml" id="fml2"></div></div>
+        <div class="sec" id="s2saveSec"><button class="bp" id="s2btn" onclick="save2()">Save</button></div>
+        <div class="okmsg" id="ok2">Saved ✓  →  Going to Skewer tracking...</div>
+        <div id="h2wrap" style="display:none"><div class="hist-hd">Today's entries</div><div id="h2l"></div></div>
+      </div>
+    </div>
+
+    <!-- STEP 3 -->
+    <div id="sc3" class="screen step-screen ahead">
+      <div class="step-hd">
+        <button class="back-btn" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 4l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="step-hd-info"><div class="step-hd-title">3 · Skewer tracking</div><div class="step-hd-sub">Production &amp; closing count</div></div>
+      </div>
+      <div class="readonly-banner" id="rb3">Viewing historical data — editing disabled</div>
+      <div class="step-body">
+        <div class="sec"><div class="ob"><div class="ob-lbl">Opening — previous session closing</div><div class="ob-val" id="s3op">0</div><div class="ob-unit">skewers in hand</div></div></div>
+        <div class="sec"><div class="irow"><span class="il">Production — skewers prepared<small id="s3prsub"></small></span><span class="iv acc" id="s3pr">0</span></div></div>
+        <div class="sec"><div class="fl"><span class="flbl">Closing — marinated skewers in freezer for next session</span><input type="number" id="s3cl" class="fi-xl" inputmode="numeric" placeholder="0" oninput="calc3()"/></div></div>
+        <div class="sec"><div class="rslt" id="s3rslt"><div class="rslt-lbl">Consumed — skewers served to guests</div><div class="rslt-val" id="s3co">—</div><div class="rslt-sub" id="s3cosub"></div></div><div class="fml" id="fml3"></div></div>
+        <div class="sec" id="s3saveSec"><button class="bp" id="s3btn" onclick="save3()">Save</button></div>
+        <div class="okmsg" id="ok3">Saved ✓  →  Going to Guest returns...</div>
+        <div id="h3wrap" style="display:none"><div class="hist-hd">Today's entries</div><div id="h3l"></div></div>
+      </div>
+    </div>
+
+    <!-- STEP 4 -->
+    <div id="sc4" class="screen step-screen ahead">
+      <div class="step-hd">
+        <button class="back-btn" onclick="goBack()"><svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M12.5 4l-6 6 6 6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="step-hd-info"><div class="step-hd-title">4 · Guest returns</div><div class="step-hd-sub">Log returned prawn pieces</div></div>
+      </div>
+      <div class="readonly-banner" id="rb4">Viewing historical data — editing disabled</div>
+      <div class="step-body">
+        <div class="sec"><div class="rctx"><div class="rct"><div class="rl">Skewers to guests</div><div class="rv" id="r4sk">—</div></div><div class="rct"><div class="rl">Net pieces served</div><div class="rv acc" id="r4net">—</div></div></div></div>
+        <div class="sec"><div class="rsp">
+          <div class="rs"><span class="flbl">Total returned today</span><div style="font-size:34px;font-weight:500;color:#E8640A;margin-top:4px" id="r4tot">0</div><div style="font-size:11px;color:#aaa">pieces</div></div>
+          <div class="rs"><span class="flbl">This return (pieces)</span><input type="number" id="s4pc" class="ufi" inputmode="numeric" placeholder="0" style="margin-top:4px"/></div>
+        </div></div>
+        <div class="sec" id="s4saveSec"><button class="bp" id="s4btn" onclick="save4()">Log return</button></div>
+        <div class="okmsg" id="ok4">Logged ✓</div>
+        <div id="h4wrap" style="display:none"><div class="hist-hd">Return log</div><div id="h4l"></div></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const PKT_REQ=10;
+let curStep=null,batchOffset=0,curRows=0;
+let activeDate=new Date().toISOString().split('T')[0]; // yyyy-mm-dd
+const $=id=>document.getElementById(id);
+const nowT=()=>new Date().toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});
+const todayStr=()=>new Date().toISOString().split('T')[0];
+const ystdStr=()=>{const d=new Date();d.setDate(d.getDate()-1);return d.toISOString().split('T')[0];};
+const fmtD=d=>new Date(d+'T00:00:00').toLocaleDateString('en-IN',{day:'numeric',month:'short',year:'numeric'});
+const outlet=()=>$('outletLbl').textContent.trim();
+const base=()=>`prn_${outlet()}_${activeDate}`;
+const prevBase=()=>{const d=new Date(activeDate);d.setDate(d.getDate()-1);return `prn_${outlet()}_${d.toISOString().split('T')[0]}`;};
+const ls={get:k=>{try{return JSON.parse(localStorage.getItem(k))}catch{return null}},set:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+
+/* EDITABLE: today + yesterday only */
+function isEditable(){return activeDate===todayStr()||activeDate===ystdStr();}
+
+/* ── DEMO STATE ── */
+function seedDemo(){
+  const k=`prn_JP Nagar_${todayStr()}_demo`;
+  if(ls.get(k))return;
+  const pkts=[{w:968,p:26},{w:955,p:25},{w:972,p:27},{w:961,p:26},{w:978,p:28},{w:950,p:25},{w:963,p:26}];
+  const totalP=pkts.reduce((s,p)=>s+p.p,0);
+  ls.set(`prn_JP Nagar_${todayStr()}_v1`,[{pkts,count:7,unu:3,time:'09:20'}]);
+  ls.set(`prn_JP Nagar_${todayStr()}_issued`,Math.max(0,totalP-3));
+  ls.set(k,true);
+}
+seedDemo();
+
+/* ── DATE ── */
+$('dateLbl').textContent=fmtD(activeDate);
+function toggleDateEdit(){
+  const lbl=$('dateLbl'),inp=$('dateInp'),btn=$('dateEditBtn');
+  if(inp.style.display==='inline-block'){commitDate();return;}
+  lbl.style.display='none';inp.style.display='inline-block';inp.value=activeDate;inp.focus();
+}
+function commitDate(){
+  const inp=$('dateInp'),lbl=$('dateLbl');
+  const val=inp.value||activeDate;
+  const d=new Date(val+'T00:00:00');
+  const today=new Date(todayStr()+'T00:00:00');
+  // Don't allow future dates
+  if(d>today){inp.value=activeDate;}
+  else activeDate=val;
+  lbl.textContent=fmtD(activeDate);
+  inp.style.display='none';lbl.style.display='';
+  const ro=!isEditable();
+  $('viewBadge').style.display=ro?'inline-block':'none';
+  refreshCards();
+  if(curStep) reloadStep(curStep);
+}
+
+/* ── OUTLET ── */
+function toggleOutletEdit(){
+  const lbl=$('outletLbl'),inp=$('outletInp');
+  if(inp.style.display==='inline-block'){commitOutlet();return;}
+  lbl.style.display='none';inp.style.display='inline-block';inp.value=lbl.textContent;inp.focus();
+}
+function commitOutlet(){
+  const inp=$('outletInp'),lbl=$('outletLbl');
+  if(inp.value.trim())lbl.textContent=inp.value.trim();
+  inp.style.display='none';lbl.style.display='';
+  refreshCards();
+}
+
+/* ── NAVIGATION ── */
+function openStep(n){
+  $('scList').classList.remove('active');$('scList').classList.add('behind');
+  [1,2,3,4].forEach(i=>{const s=$('sc'+i);s.classList.remove('active','behind');s.classList.add('ahead');});
+  $('sc'+n).classList.remove('ahead');$('sc'+n).classList.add('active');
+  curStep=n; reloadStep(n);
+}
+function goBack(){
+  $('sc'+curStep).classList.remove('active');$('sc'+curStep).classList.add('ahead');
+  $('scList').classList.remove('behind');$('scList').classList.add('active');
+  curStep=null;refreshCards();
+}
+function goNext(n){
+  if(n>4){goBack();return;}
+  $('sc'+(n-1)).classList.remove('active');$('sc'+(n-1)).classList.add('behind');
+  $('sc'+n).classList.remove('ahead');$('sc'+n).classList.add('active');
+  curStep=n; reloadStep(n);
+}
+function reloadStep(n){
+  const ro=!isEditable();
+  // show/hide readonly banner & disable inputs
+  [1,2,3,4].forEach(i=>{
+    const rb=$('rb'+i); if(rb){rb.classList.toggle('on',ro&&i===n);}
+  });
+  // disable save buttons
+  ['s1btn','s2btn','s3btn','s4btn'].forEach((id,i)=>{const el=$(id);if(el)el.disabled=ro;});
+  // disable inputs in forms
+  document.querySelectorAll('.pki,.ufi,.fi-xl').forEach(el=>el.disabled=ro);
+  if(n===1)initS1();if(n===2)loadS2();if(n===3)loadS3();if(n===4)loadS4();
+}
+
+/* ── CARD STATE ── */
+const ICON_IDLE=`<svg width="14" height="14" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6" stroke="#ccc" stroke-width="1.5"/></svg>`;
+const ICON_PEND=`<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" fill="#FEF3C7" stroke="#F59E0B" stroke-width="1.2"/><path d="M8 5v3.5l2 1.5" stroke="#92400E" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const ICON_DONE=`<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="6.5" fill="#DCFCE7" stroke="#22C55E" stroke-width="1.2"/><path d="M5 8l2.5 2.5L11 5.5" stroke="#166534" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+function setCard(n,state,main,meta){
+  const seq=$('fseq'+n),ico=$('ico'+n),fc=$('fc'+n);
+  seq.className='fseq '+(state===1?'s-pend':state===2?'s-done':'fn0');
+  ico.className='ico '+(state===1?'ico-pend':state===2?'ico-done':'ico-idle');
+  ico.innerHTML=state===1?ICON_PEND:state===2?ICON_DONE:ICON_IDLE;
+  if(main)$('fs'+n+'a').innerHTML=main;
+  $('fs'+n+'b').innerHTML=meta||'';
+  fc.classList.toggle('pend',state===1);
+}
+
+function refreshCards(){
+  const bs=ls.get(base()+'_v1')||[];
+  const saved=bs.reduce((s,b)=>s+b.pkts.filter(p=>p.w||p.p).length,0);
+  const totW=bs.reduce((s,b)=>s+b.pkts.reduce((ss,p)=>ss+p.w,0),0);
+  const totIss=ls.get(base()+'_issued')||0;
+  const processed=bs.reduce((s,b)=>s+b.count,0);
+  const remaining=Math.max(0,PKT_REQ-processed);
+  if(!bs.length)setCard(1,0,'Fill weight &amp; pieces for each packet from store','');
+  else if(remaining>0)setCard(1,1,`${saved} pkts saved · <b style="color:#92400E">${remaining} more pkts pending</b>`,`${bs.length} batch${bs.length>1?'es':''} · last ${bs[bs.length-1]?.time}`);
+  else setCard(1,2,`${saved} pkts · ${(totW/1000).toFixed(2)} kg · ${totIss} usable pcs`,`${bs.length} batch${bs.length>1?'es':''} · last ${bs[bs.length-1]?.time}`);
+
+  const s2=ls.get(base()+'_s2')||[];
+  const issued=ls.get(base()+'_issued')||0;
+  const lastS2Base=s2.length?s2[s2.length-1].issued_baseline:0;
+  const pendIss=Math.max(0,issued-lastS2Base);
+  const totalSentKitchen=s2.reduce((s,e)=>s+e.consumed,0);
+  const lastClosing2=s2.length?s2[s2.length-1].closing:null;
+  if(!s2.length&&!issued)setCard(2,0,'Track pieces thawed &amp; sent to kitchen','');
+  else if(pendIss>0)setCard(2,1,`<b style="color:#92400E">${pendIss} pcs not yet accounted</b>${totalSentKitchen?` · ${totalSentKitchen} pcs sent so far`:''}`,`Enter closing to calculate`);
+  else if(s2.length)setCard(2,2,`${totalSentKitchen} pcs sent to kitchen (total)`,`Closing: ${lastClosing2} pcs · last ${s2[s2.length-1].time}`);
+
+  const s3=ls.get(base()+'_s3')||[];
+  const totS2=(ls.get(base()+'_s2')||[]).reduce((s,e)=>s+e.consumed,0);
+  const lastS3Base=s3.length?s3[s3.length-1].s2con_baseline:0;
+  const pendPr=Math.floor(Math.max(0,totS2-lastS3Base)/3);
+  const totalConsumedSk=s3.reduce((s,e)=>s+e.consumed,0);
+  const lastClosing3=s3.length?s3[s3.length-1].closing:null;
+  if(!s3.length&&!totS2)setCard(3,0,'Track skewers produced &amp; served to guests','');
+  else if(pendPr>0||(!s3.length&&totS2>0))setCard(3,1,`<b style="color:#92400E">${pendPr} new skewers not tracked</b>${totalConsumedSk?` · ${totalConsumedSk} served so far`:''}`,`Enter closing skewer count`);
+  else if(s3.length)setCard(3,2,`${totalConsumedSk} skewers served (${totalConsumedSk*3} pcs total)`,`Closing: ${lastClosing3} skewers · last ${s3[s3.length-1].time}`);
+
+  const s4=ls.get(base()+'_s4')||[];
+  const totRet=s4.reduce((s,e)=>s+e.pieces,0);
+  const sk=s3.reduce((s,e)=>s+e.consumed,0);
+  if(!s4.length&&!sk)setCard(4,0,'Log prawn pieces returned from guest tables','');
+  else if(!s4.length&&sk)setCard(4,1,`${sk} skewers sent — <b style="color:#92400E">no returns logged</b>`,'Tap to log any guest returns');
+  else setCard(4,2,`${totRet} pcs returned · net ${Math.max(0,sk*3-totRet)} pcs served`,`${s4.length} log${s4.length>1?'s':''} · last ${s4[s4.length-1].time}`);
+}
+
+/* ── STEP 1 ── */
+function initS1(){
+  const bs=ls.get(base()+'_v1')||[];
+  batchOffset=bs.reduce((s,b)=>s+b.count,0);
+  curRows=Math.max(0,PKT_REQ-batchOffset);
+  $('unu').value='';$('pktErr').style.display='none';
+  renderBatches();buildRows(batchOffset,curRows);calcT1();
+  const pb=$('pb1');
+  if(batchOffset>0&&curRows>0){pb.classList.add('on');pb.textContent=`${bs.length} batch${bs.length>1?'es':''} saved (${batchOffset} pkts). Fill remaining ${curRows} packets below.`;}
+  else pb.classList.remove('on');
+  $('sc1sub').textContent=curRows>0?`${curRows} packets pending · all rows mandatory`:'All packets processed';
+}
+function buildRows(offset,count){
+  const c=$('pktRows');c.innerHTML='';
+  const ro=!isEditable();
+  if(!count){c.innerHTML=`<div style="padding:12px;font-size:13px;color:#aaa;text-align:center">All ${PKT_REQ} packets processed.</div>`;$('s1btn').style.display='none';return;}
+  $('s1btn').style.display='block';
+  for(let i=1;i<=count;i++){
+    const pn=offset+i,r=document.createElement('div');r.className='prow';r.id='pr'+pn;
+    r.innerHTML=`<div class="pn">${pn}</div><div class="pcc"><input type="number" id="pw${pn}" class="pki" inputmode="decimal" step="1" placeholder="—" ${ro?'disabled':''} oninput="clearE();calcT1();markRow(${pn})"></div><div class="pcc"><input type="number" id="pp${pn}" class="pki" inputmode="numeric" placeholder="—" ${ro?'disabled':''} oninput="clearE();calcT1();markRow(${pn})"></div>`;
+    c.appendChild(r);
+  }
+}
+function markRow(pn){const w=$('pw'+pn)?.value,p=$('pp'+pn)?.value;const row=$('pr'+pn);if(row)row.classList.toggle('filled',!!(w&&p));}
+function renderBatches(){
+  const bs=ls.get(base()+'_v1')||[];const h=$('h1wrap');
+  if(!bs.length){h.style.display='none';return;}h.style.display='block';
+  $('h1l').innerHTML=bs.map((b,i)=>{const tw=b.pkts.reduce((s,p)=>s+p.w,0),tp=b.pkts.reduce((s,p)=>s+p.p,0),fill=b.pkts.filter(p=>p.w||p.p).length;return `<div class="he"><span>Batch ${i+1}: ${fill} pkts · ${(tw/1000).toFixed(3)} kg · ${tp} pcs · ${b.unu||0} unusable</span><span class="ht">${b.time}</span></div>`;}).join('');
+}
+function clearE(){$('pktErr').style.display='none';document.querySelectorAll('.pki.err').forEach(e=>e.classList.remove('err'));}
+function calcT1(){
+  const bs=ls.get(base()+'_v1')||[];let svW=0,svP=0;bs.forEach(b=>b.pkts.forEach(p=>{svW+=p.w;svP+=p.p;}));
+  let cW=0,cP=0;for(let i=1;i<=curRows;i++){const pn=batchOffset+i;cW+=parseFloat($('pw'+pn)?.value)||0;cP+=parseInt($('pp'+pn)?.value)||0;}
+  const unu=parseInt($('unu').value)||0,tW=svW+cW,tP=svP+cP;
+  $('t1w').textContent=tW?(tW/1000).toFixed(3)+' kg':'—';
+  $('t1p').textContent=tP||'—';$('t1u').textContent=tP?Math.max(0,tP-unu):'—';
+  const f=$('fml1');
+  if(tP){f.style.display='block';f.innerHTML=unu?`${tP} total − ${unu} unusable = <strong>${Math.max(0,tP-unu)} for skewers</strong>`:`${tP} total pieces`;}
+  else f.style.display='none';
+}
+function prevImg(input){
+  if(!input.files||!input.files[0])return;
+  const url=URL.createObjectURL(input.files[0]);$('imgph').style.display='none';
+  let img=$('imgbox').querySelector('img');
+  if(!img){img=document.createElement('img');$('imgbox').insertBefore(img,$('imgbox').querySelector('input'));}
+  img.src=url;
+}
+function save1(){
+  if(!isEditable())return;
+  let pkts=[],invalid=false;clearE();
+  for(let i=1;i<=curRows;i++){
+    const pn=batchOffset+i,wE=$('pw'+pn),pE=$('pp'+pn);
+    const w=parseFloat(wE?.value)||0,p=parseInt(pE?.value)||0;
+    if(!w||!p){invalid=true;if(!w)wE?.classList.add('err');if(!p)pE?.classList.add('err');}
+    pkts.push({w,p});
+  }
+  if(invalid){$('pktErr').style.display='block';return;}
+  const unu=parseInt($('unu').value)||0;
+  const bs=ls.get(base()+'_v1')||[];
+  bs.push({pkts,count:curRows,unu,time:nowT()});
+  ls.set(base()+'_v1',bs);
+  const totP=bs.reduce((s,b)=>s+b.pkts.reduce((ss,p)=>ss+p.p,0)-(b.unu||0),0);
+  ls.set(base()+'_issued',Math.max(0,totP));
+  batchOffset+=curRows;curRows=Math.max(0,PKT_REQ-batchOffset);
+  renderBatches();buildRows(batchOffset,curRows);calcT1();
+  $('unu').value='';const imgEl=$('imgbox').querySelector('img');if(imgEl){imgEl.remove();$('imgph').style.display='';}
+  const ok=$('ok1');ok.style.display='block';refreshCards();
+  setTimeout(()=>{ok.style.display='none';goNext(2);},1400);
+}
+
+/* ── STEP 2 ── */
+function loadS2(){
+  const s2=ls.get(base()+'_s2')||[],prev=ls.get(prevBase()+'_s2')||[];
+  const op=s2.length?s2[s2.length-1].closing:prev.length?prev[prev.length-1].closing:0;
+  const issued=ls.get(base()+'_issued')||0,lastBase=s2.length?s2[s2.length-1].issued_baseline:0;
+  $('s2op').textContent=op;$('s2is').textContent=Math.max(0,issued-lastBase);
+  $('s2cl').value='';$('s2rslt').classList.remove('on');$('fml2').style.display='none';renderH2();
+}
+function calc2(){
+  const op=+$('s2op').textContent||0,is=+$('s2is').textContent||0,cl=+$('s2cl').value||0,co=Math.max(0,op+is-cl);
+  $('s2co').textContent=co;$('s2rslt').classList.add('on');
+  $('fml2').style.display='block';$('fml2').innerHTML=`${op} opening + ${is} issued − ${cl} closing = <strong>${co} pcs sent to kitchen</strong>`;
+}
+function save2(){
+  if(!isEditable()||!$('s2cl').value)return;
+  const s2=ls.get(base()+'_s2')||[],prev=ls.get(prevBase()+'_s2')||[];
+  const op=s2.length?s2[s2.length-1].closing:prev.length?prev[prev.length-1].closing:0;
+  const issued=ls.get(base()+'_issued')||0,lastBase=s2.length?s2[s2.length-1].issued_baseline:0;
+  const is=Math.max(0,issued-lastBase),cl=+$('s2cl').value,co=Math.max(0,op+is-cl);
+  s2.push({op,is,closing:cl,consumed:co,issued_baseline:issued,time:nowT()});
+  ls.set(base()+'_s2',s2);refreshCards();
+  const ok=$('ok2');ok.style.display='block';
+  setTimeout(()=>{ok.style.display='none';renderH2();loadS2();goNext(3);},1400);
+}
+function renderH2(){
+  const e=ls.get(base()+'_s2')||[],h=$('h2wrap');
+  if(!e.length){h.style.display='none';return;}h.style.display='block';
+  $('h2l').innerHTML=e.map(x=>`<div class="he"><span>${x.op} + ${x.is} − ${x.closing} = ${x.consumed} pcs to kitchen</span><span class="ht">${x.time}</span></div>`).join('');
+}
+
+/* ── STEP 3 ── */
+function s2conTotal(){return (ls.get(base()+'_s2')||[]).reduce((s,e)=>s+e.consumed,0);}
+function loadS3(){
+  const s3=ls.get(base()+'_s3')||[],prev=ls.get(prevBase()+'_s3')||[];
+  const op=s3.length?s3[s3.length-1].closing:prev.length?prev[prev.length-1].closing:0;
+  const totCon=s2conTotal(),lastBase=s3.length?s3[s3.length-1].s2con_baseline:0;
+  const newCon=Math.max(0,totCon-lastBase),pr=Math.floor(newCon/3);
+  $('s3op').textContent=op;$('s3pr').textContent=pr;
+  $('s3prsub').textContent=newCon?` — ${newCon} pcs ÷ 3 = ${pr} skewers`:'';
+  $('s3cl').value='';$('s3rslt').classList.remove('on');$('fml3').style.display='none';renderH3();
+}
+function calc3(){
+  const op=+$('s3op').textContent||0,pr=+$('s3pr').textContent||0,cl=+$('s3cl').value||0,co=Math.max(0,op+pr-cl);
+  $('s3co').textContent=co;$('s3cosub').textContent=co?`= ${co*3} prawn pieces served to guests`:'';
+  $('s3rslt').classList.add('on');
+  $('fml3').style.display='block';$('fml3').innerHTML=`${op} opening + ${pr} produced − ${cl} closing = <strong>${co} skewers consumed</strong>`;
+}
+function save3(){
+  if(!isEditable()||!$('s3cl').value)return;
+  const s3=ls.get(base()+'_s3')||[],prev=ls.get(prevBase()+'_s3')||[];
+  const op=s3.length?s3[s3.length-1].closing:prev.length?prev[prev.length-1].closing:0;
+  const totCon=s2conTotal(),lastBase=s3.length?s3[s3.length-1].s2con_baseline:0;
+  const newCon=Math.max(0,totCon-lastBase),pr=Math.floor(newCon/3);
+  const cl=+$('s3cl').value,co=Math.max(0,op+pr-cl);
+  s3.push({op,pr,closing:cl,consumed:co,s2con_baseline:totCon,time:nowT()});
+  ls.set(base()+'_s3',s3);refreshCards();
+  const ok=$('ok3');ok.style.display='block';
+  setTimeout(()=>{ok.style.display='none';renderH3();loadS3();goNext(4);},1400);
+}
+function renderH3(){
+  const e=ls.get(base()+'_s3')||[],h=$('h3wrap');
+  if(!e.length){h.style.display='none';return;}h.style.display='block';
+  $('h3l').innerHTML=e.map(x=>`<div class="he"><span>${x.op} + ${x.pr} − ${x.closing} = ${x.consumed} skewers (${x.consumed*3} pcs)</span><span class="ht">${x.time}</span></div>`).join('');
+}
+
+/* ── STEP 4 ── */
+function loadS4(){
+  const e=ls.get(base()+'_s4')||[],tot=e.reduce((s,x)=>s+x.pieces,0);
+  $('r4tot').textContent=tot;
+  const sk=(ls.get(base()+'_s3')||[]).reduce((s,e)=>s+e.consumed,0);
+  $('r4sk').textContent=sk||'—';$('r4net').textContent=sk?Math.max(0,sk*3-tot):'—';renderH4();
+}
+function save4(){
+  if(!isEditable())return;
+  const v=+$('s4pc').value;if(!v||v<=0)return;
+  const e=ls.get(base()+'_s4')||[];
+  e.push({pieces:v,time:nowT()});ls.set(base()+'_s4',e);
+  $('s4pc').value='';refreshCards();
+  const ok=$('ok4');ok.style.display='block';setTimeout(()=>{ok.style.display='none';loadS4();},1500);
+}
+function renderH4(){
+  const e=ls.get(base()+'_s4')||[],h=$('h4wrap');
+  if(!e.length){h.style.display='none';return;}h.style.display='block';
+  $('h4l').innerHTML=e.map(x=>`<div class="he"><span>${x.pieces} pieces returned</span><span class="ht">${x.time}</span></div>`).join('');
+}
+
+batchOffset=0;curRows=0;refreshCards();
+</script>
+</body>
+</html>
