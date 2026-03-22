@@ -647,7 +647,9 @@ function save4(){
   const e=ls.get(base()+'_s4')||[];
   e.push({pieces:v,time:nowT()});ls.set(base()+'_s4',e);
   $('s4pc').value='';refreshCards();
-  const ok=$('ok4');ok.style.display='block';setTimeout(()=>{ok.style.display='none';loadS4();},1500);
+  loadS4();
+  const ok=$('ok4');ok.textContent='Logged ✓  →  Returning to overview...';ok.style.display='block';
+  setTimeout(()=>{ok.style.display='none';goBack();},1400);
 }
 function renderH4(){
   const e=ls.get(base()+'_s4')||[],h=$('h4wrap');
